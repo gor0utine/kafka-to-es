@@ -66,6 +66,7 @@ func (b *Bulker) Add(ctx context.Context, it Item) error {
 		Body:       bytes.NewReader(it.Body),
 		OnSuccess: func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem) {
 			// optional hook for metrics
+			log.Printf("bulk success: index=%s id=%s version=%d", it.Index, it.ID, res.Version)
 		},
 		OnFailure: func(ctx context.Context, item esutil.BulkIndexerItem, resp esutil.BulkIndexerResponseItem, err error) {
 			log.Printf("bulk failure: index=%s id=%s err=%v resp=%v", it.Index, it.ID, err, resp)
