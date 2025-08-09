@@ -37,7 +37,7 @@ worker:
   num_workers: 4
   batch_size: 500
   batch_bytes: 1048576
-  flush_interval_seconds: "2s"
+  flush_interval_seconds: "2s"  # Use a string with time unit, e.g., "2s"
 
 mappings:
   # Define your field mappings here

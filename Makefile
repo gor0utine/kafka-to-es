@@ -1,47 +1,50 @@
-# Service names
-COMPOSE_FILE=docker-compose.yml
-CONSUMER_IMAGE=kafka-es-consumer
-PRODUCER_IMAGE=kafka-producer
+BINARY_CONSUMER=consumer
+BINARY_PRODUCER=producer
+CONFIG_FILE=config.yaml
+DOCKER_COMPOSE=docker-compose.yml
 
-# Default target: run everything in Docker
+# Build & run everything
 .PHONY: run-docker
-run-docker: build-docker up
+run-docker:
+	@echo ">>> Building and starting full Docker stack..."
+	docker compose -f $(DOCKER_COMPOSE) up --build
 
-# Build Docker images for consumer and producer
-.PHONY: build-docker
-build-docker:
-	@echo ">>> Building consumer image..."
-	docker compose -f $(COMPOSE_FILE) build consumer
-	@echo ">>> Building producer image..."
-	docker compose -f $(COMPOSE_FILE) build producer
-
-# Start full stack (Redpanda, ES, Kibana, Kafka UI, Consumer, Producer)
+# Start stack without rebuilding
 .PHONY: up
 up:
-	@echo ">>> Starting full Docker stack..."
-	docker compose -f $(COMPOSE_FILE) up -d
-	@echo ">>> Waiting for services to initialize..."
-	sleep 10
-	@echo ">>> Creating Kafka topics..."
-	docker exec -it redpanda rpk topic create topic-a topic-b || true
+	@echo ">>> Starting existing stack..."
+	docker compose -f $(DOCKER_COMPOSE) up
 
-# Stop and remove everything
+# Stop stack
 .PHONY: down
 down:
 	@echo ">>> Stopping and removing containers..."
-	docker compose -f $(COMPOSE_FILE) down -v
+	docker compose -f $(DOCKER_COMPOSE) down -v
 
-# View logs of all services
-.PHONY: logs
-logs:
-	docker compose -f $(COMPOSE_FILE) logs -f
+# Build only producer & consumer images
+.PHONY: build-docker
+build-docker:
+	@echo ">>> Building producer and consumer images..."
+	docker compose -f $(DOCKER_COMPOSE) build producer consumer
 
-# View logs for consumer
+# View logs from consumer
 .PHONY: logs-consumer
 logs-consumer:
-	docker compose -f $(COMPOSE_FILE) logs -f consumer
+	docker compose -f $(DOCKER_COMPOSE) logs -f consumer
 
-# View logs for producer
+# View logs from producer
 .PHONY: logs-producer
 logs-producer:
-	docker compose -f $(COMPOSE_FILE) logs -f producer
+	docker compose -f $(DOCKER_COMPOSE) logs -f producer
+
+# Recreate Kafka topics inside Redpanda
+.PHONY: create-topics
+create-topics:
+	@echo ">>> Creating Kafka topics topic-a and topic-b..."
+	docker exec -it redpanda rpk topic create topic-a topic-b || true
+
+# Clean everything (containers + volumes + images)
+.PHONY: clean
+clean:
+	@echo ">>> Cleaning all containers, volumes, and images..."
+	docker compose -f $(DOCKER_COMPOSE) down -v --rmi local
