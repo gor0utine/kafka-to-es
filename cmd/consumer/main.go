@@ -35,17 +35,27 @@ func main() {
 		log.Fatalf("es client: %v", err)
 	}
 
-	// channels and components
-	inCh := make(chan *kafka.Message, 10000) // buffer for smoothing bursts
-	consumer := kafka.NewConsumerManager(cfg.Kafka.Brokers, cfg.Kafka.GroupID, cfg.Kafka.Topics)
-	bulker := indexer.NewBulker(es)
+	// Prepare consumer config
+	consumerCfg := kafka.ConsumerConfig{
+		Brokers: cfg.Kafka.Brokers,
+		GroupID: cfg.Kafka.GroupID,
+		Topics:  cfg.Kafka.Topics,
+	}
+	inCh := make(chan *kafka.Message, 10000)
+
+	consumer := kafka.NewConsumerManager(consumerCfg)
+	bulker := indexer.NewBulker(
+		es,
+		cfg.Worker.NumWorkers,
+		cfg.Worker.BatchBytes,
+		cfg.Worker.FlushInterval,
+	)
 	mapper := mapper.New(cfg.Mappings)
 	wp := worker.NewWorkerPool(bulker, mapper, inCh, cfg.Worker.NumWorkers)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// start components
 	consumer.Start(ctx, inCh)
 	wp.Start(ctx)
 
@@ -56,7 +66,6 @@ func main() {
 	log.Println("received shutdown signal, draining...")
 
 	cancel()
-	// allow a grace period for flushing
 	shutdownCtx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	if err := bulker.Close(shutdownCtx); err != nil {
 		log.Printf("error closing bulker: %v", err)

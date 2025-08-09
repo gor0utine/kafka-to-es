@@ -1,3 +1,4 @@
+// internal/worker/pool.go
 package worker
 
 import (
@@ -9,17 +10,24 @@ import (
 
 	"github.com/gor0utine/kafka-to-es/internal/indexer"
 	"github.com/gor0utine/kafka-to-es/internal/kafka"
-	"github.com/gor0utine/kafka-to-es/internal/mapper"
 )
 
+type Bulker interface {
+	Add(ctx context.Context, item indexer.Item) error
+}
+
+type Mapper interface {
+	IndexForTopic(topic string) string
+}
+
 type Pool struct {
-	bulker *indexer.Bulker
-	mapper *mapper.Mapper
+	bulker Bulker
+	mapper Mapper
 	inCh   <-chan *kafka.Message
 	num    int
 }
 
-func NewWorkerPool(b *indexer.Bulker, m *mapper.Mapper, in <-chan *kafka.Message, num int) *Pool {
+func NewWorkerPool(b Bulker, m Mapper, in <-chan *kafka.Message, num int) *Pool {
 	return &Pool{bulker: b, mapper: m, inCh: in, num: num}
 }
 
@@ -34,15 +42,14 @@ func (wp *Pool) run(ctx context.Context, id int) {
 	for {
 		select {
 		case <-ctx.Done():
+			log.Printf("worker %d shutting down", id)
 			return
-		case msg := <-wp.inCh:
-			if msg == nil {
-				// channel closed
+		case msg, ok := <-wp.inCh:
+			if !ok || msg == nil {
+				log.Printf("worker %d input channel closed", id)
 				return
 			}
-			// Map topic -> index
 			idx := wp.mapper.IndexForTopic(msg.Topic)
-			// Optionally transform message (parse, enrich, etc)
 			doc := map[string]interface{}{
 				"payload": json.RawMessage(msg.Value),
 				"key":     string(msg.Key),
@@ -51,18 +58,17 @@ func (wp *Pool) run(ctx context.Context, id int) {
 			}
 			b, err := json.Marshal(doc)
 			if err != nil {
-				log.Printf("marshal error: %v", err)
+				log.Printf("worker %d marshal error: %v", id, err)
 				continue
 			}
-			// Use UUID as doc ID (or derive from message)
-			id := uuid.New().String()
+			docID := uuid.New().String()
 			item := indexer.Item{
 				Index: idx,
-				ID:    id,
+				ID:    docID,
 				Body:  b,
 			}
 			if err := wp.bulker.Add(ctx, item); err != nil {
-				log.Printf("failed to add to bulker: %v", err)
+				log.Printf("worker %d failed to add to bulker: %v", id, err)
 			}
 		}
 	}
