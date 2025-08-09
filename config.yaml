@@ -20,4 +20,4 @@ worker:
   num_workers: 4
   batch_size: 500
   batch_bytes: 5_000_000
-  flush_interval_seconds: 2
+  flush_interval_seconds: 2s
