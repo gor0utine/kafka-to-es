@@ -1,47 +1,47 @@
-# Variables
-BINARY_NAME=kafka-es-bulker
-CONFIG_FILE=config.yaml
-DOCKER_COMPOSE=docker-compose.yml
+# Service names
+COMPOSE_FILE=docker-compose.yml
+CONSUMER_IMAGE=kafka-es-consumer
+PRODUCER_IMAGE=kafka-producer
 
-# Default target
-.PHONY: all
-all: up build run
+# Default target: run everything in Docker
+.PHONY: run-docker
+run-docker: build-docker up
 
-# Start Kafka + Elasticsearch + Kibana
+# Build Docker images for consumer and producer
+.PHONY: build-docker
+build-docker:
+	@echo ">>> Building consumer image..."
+	docker compose -f $(COMPOSE_FILE) build consumer
+	@echo ">>> Building producer image..."
+	docker compose -f $(COMPOSE_FILE) build producer
+
+# Start full stack (Redpanda, ES, Kibana, Kafka UI, Consumer, Producer)
 .PHONY: up
 up:
-	@echo ">>> Starting local Kafka + Elasticsearch + Kibana..."
-	docker compose -f $(DOCKER_COMPOSE) up -d
-	@echo ">>> Waiting for services to be ready..."
-	@sleep 10
+	@echo ">>> Starting full Docker stack..."
+	docker compose -f $(COMPOSE_FILE) up -d
+	@echo ">>> Waiting for services to initialize..."
+	sleep 10
 	@echo ">>> Creating Kafka topics..."
 	docker exec -it redpanda rpk topic create topic-a topic-b || true
 
-# Stop and remove containers
+# Stop and remove everything
 .PHONY: down
 down:
-	@echo ">>> Stopping containers..."
-	docker compose -f $(DOCKER_COMPOSE) down -v
+	@echo ">>> Stopping and removing containers..."
+	docker compose -f $(COMPOSE_FILE) down -v
 
-# Build Go service
-.PHONY: build
-build:
-	@echo ">>> Building $(BINARY_NAME)..."
-	go mod tidy
-	go build -o $(BINARY_NAME) ./cmd/service
+# View logs of all services
+.PHONY: logs
+logs:
+	docker compose -f $(COMPOSE_FILE) logs -f
 
-# Run the service
-.PHONY: run
-run:
-	@echo ">>> Running $(BINARY_NAME) with config $(CONFIG_FILE)..."
-	./$(BINARY_NAME)
+# View logs for consumer
+.PHONY: logs-consumer
+logs-consumer:
+	docker compose -f $(COMPOSE_FILE) logs -f consumer
 
-# Clean binary
-.PHONY: clean
-clean:
-	@echo ">>> Removing binary..."
-	rm -f $(BINARY_NAME)
-
-# Restart entire stack
-.PHONY: restart
-restart: down up build run
+# View logs for producer
+.PHONY: logs-producer
+logs-producer:
+	docker compose -f $(COMPOSE_FILE) logs -f producer

@@ -20,6 +20,20 @@ services:
     networks:
       - localnet
 
+  # ---- Kafka UI ----
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=redpanda:9092
+    depends_on:
+      - redpanda
+    networks:
+      - localnet
+
   # ---- Elasticsearch ----
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
@@ -33,7 +47,7 @@ services:
     networks:
       - localnet
 
-  # ---- Kibana (optional, UI for ES) ----
+  # ---- Kibana ----
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.0
     container_name: kibana
@@ -43,6 +57,29 @@ services:
       - "5601:5601"
     depends_on:
       - elasticsearch
+    networks:
+      - localnet
+
+  # ---- Kafka -> Elasticsearch Consumer ----
+  consumer:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.consumer
+    container_name: kafka-es-consumer
+    depends_on:
+      - redpanda
+      - elasticsearch
+    networks:
+      - localnet
+
+  # ---- Kafka Producer ----
+  producer:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.producer
+    container_name: kafka-producer
+    depends_on:
+      - redpanda
     networks:
       - localnet
 

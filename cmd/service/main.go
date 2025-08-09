@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -22,6 +23,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
+
+	fmt.Printf("config: %+v\n", cfg)
 
 	esCfg := elasticsearch.Config{
 		Addresses: cfg.ES.Addresses,

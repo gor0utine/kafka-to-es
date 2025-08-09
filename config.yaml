@@ -1,6 +1,6 @@
 kafka:
   brokers:
-    - "localhost:9092"
+    - "redpanda:9092"
   group_id: "kafka-es-bulker"
   topics:
     - "topic-a"
@@ -8,7 +8,7 @@ kafka:
 
 es:
   addresses:
-    - "http://localhost:9200"
+    - "http://elasticsearch:9200"
   username: ""
   password: ""
 
